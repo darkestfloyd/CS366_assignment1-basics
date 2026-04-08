@@ -35,9 +35,6 @@ class BPETokenizer:
         with open(input_path, 'r') as file:
             doc = file.read()
 
-        if type(doc) == list:
-            doc = '\n'.join(doc) # merge if list
-
         # expand vocab with special tokens
         for sp in special_tokens:
             self.vocab[max(self.vocab) + 1] = sp
@@ -58,6 +55,9 @@ class BPETokenizer:
             self.merges.append(max_pair)
             word_counts = merge_max(word_counts, max_pair, 
                                     new_idx=max(self.vocab))
+            
+        print(self.vocab)
+        print(self.merges)
 
         return((self.vocab, self.merges))
 
@@ -66,5 +66,5 @@ class BPETokenizer:
 #        'newest newest newest newest newest newest', 
 #        'hello! こんにちは!']
 
-# bpe_tokenizer = BPETokenizer()
-# print(bpe_tokenizer.train('./tests/fixtures/corpus.en', 1000, ['<|endoftext|>']))
+bpe_tokenizer = BPETokenizer()
+print(bpe_tokenizer.train('./tests/fixtures/corpus.en', 1000, ['<|endoftext|>']))
