@@ -90,10 +90,10 @@ def main() -> None:
 
     with cProfile.Profile() as pr:
         bpe_tokenizer = BPETokenizer()
-        v, m = bpe_tokenizer.train('./tests/fixtures/corpus.en', 500, ['<|endoftext|>'])
+        v, m = bpe_tokenizer.train('./tests/fixtures/tinystories_sample_5M.txt', 1000, ['<|endoftext|>'])
         # print(bpe_tokenizer.train('./tests/fixtures/test_doc.txt', 260, ['<|endoftext|>', '<|endofsentence|>']))
 
-    pr.dump_stats('pstats.prof')
+    pr.dump_stats('tinystories_sample_5M.prof')
 
 if __name__  == "__main__":
     main()
