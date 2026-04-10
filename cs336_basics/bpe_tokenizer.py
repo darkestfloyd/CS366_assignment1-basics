@@ -1,9 +1,8 @@
 import numpy as np
 import regex
 from collections import defaultdict
-import pprint
 
-def count_pairs(word_counts: dict[list[bytes], int]) -> dict[tuple[bytes, bytes], int]:
+def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
     for word in word_counts:
         for i in range(len(word)-1):
@@ -30,7 +29,7 @@ def merge_max(word_counts: dict[tuple[bytes, ...], int], max_pair: tuple[bytes, 
     return new_counts
 
 # count words
-def get_word_counts(words: iter) -> dict[tuple[bytes, ...], int]:
+def get_word_counts(words: iter) -> dict[tuple[bytes], int]:
     word_counts: dict[list[bytes], int] = defaultdict(int)
     for word in words:
         sub_word = tuple(bytes([x]) for x in word.group().encode())
@@ -53,8 +52,11 @@ class BPETokenizer:
             doc = file.read()
 
         # expand vocab with special tokens
-        for sp in special_tokens:
-            self.vocab[max(self.vocab) + 1] = sp.encode()
+        if len(special_tokens) > 0: 
+            for sp in special_tokens:
+                self.vocab[max(self.vocab) + 1] = sp.encode()
+        else:
+            docs = doc
 
         # break str into words
         words = regex.finditer(self.PAT, doc)
@@ -78,14 +80,12 @@ class BPETokenizer:
         return (self.vocab, self.merges)
 
 
+def main() -> None: 
+    import pprint
+    bpe_tokenizer = BPETokenizer()
+    v, m = bpe_tokenizer.train('./tests/fixtures/corpus.en', 500, ['<|endoftext|>'])
+    pprint.pprint((v, m))
+    # print(bpe_tokenizer.train('./tests/fixtures/test_doc.txt', 260, ['<|endoftext|>']))
 
-# bpe_tokenizer = BPETokenizer()
-# v, m = bpe_tokenizer.train('./tests/fixtures/corpus.en', 500, ['<|endoftext|>'])
-# for idx, mv in enumerate(m):
-#     print(idx, mv)
-
-# pc=count_pairs(wc)
-# print("max",  max(pc, key=pc.get))
-# sc=sorted_counts(pc)
-# print(list(sc)[:10])
-# print(bpe_tokenizer.train('./tests/fixtures/test_doc.txt', 260, ['<|endoftext|>']))
+if __name__  == "__main__":
+    main()
