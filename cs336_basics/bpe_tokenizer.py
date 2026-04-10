@@ -1,13 +1,14 @@
 import numpy as np
 import regex
 from collections import defaultdict
+import pprint
 
 def count_pairs(word_counts: dict[list[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
     for word in word_counts:
         for i in range(len(word)-1):
             pair_key = (word[i], word[i+1])
-            pair_counts[pair_key] += 1
+            pair_counts[pair_key] += word_counts[word]
     return pair_counts 
 
 def merge_max(word_counts: dict[tuple[bytes, ...], int], max_pair: tuple[bytes, bytes]) -> dict[list[bytes], int]:
@@ -36,6 +37,7 @@ def get_word_counts(words: iter) -> dict[tuple[bytes, ...], int]:
         word_counts[sub_word] += 1
     return word_counts
         
+sorted_counts = lambda x: sorted(x.items(), key=lambda item: item[1],  reverse=True)
 class BPETokenizer:
     def __init__(self):
         self.PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
@@ -58,16 +60,18 @@ class BPETokenizer:
         words = regex.finditer(self.PAT, doc)
         word_counts = get_word_counts(words)
 
-        sorted_counts = lambda x: sorted(x.items(), key=lambda item: item[1])
         # print(sorted_counts(word_counts))
         # print("============================")
         while len(self.vocab) < vocab_size:
             pair_counts = count_pairs(word_counts)
             # print(sorted_counts(pair_counts))
             # print("-----------------")
-            max_pair = max(pair_counts, key=pair_counts.get)
+            # max_pair = max(pair_counts, key=pair_counts.get)
+            max_value = max(pair_counts.values())
+            max_pair = [k for k, v in pair_counts.items() if v == max_value]
+            max_pair = max(max_pair)
             # print(max_pair)
-            self.vocab[max(self.vocab) + 1] = max_pair
+            self.vocab[max(self.vocab) + 1] = b''.join(max_pair)
             self.merges.append(max_pair)
             word_counts = merge_max(word_counts, max_pair)
             
@@ -75,6 +79,13 @@ class BPETokenizer:
 
 
 
-bpe_tokenizer = BPETokenizer()
-print(bpe_tokenizer.train('./tests/fixtures/corpus.en', 260, ['<|endoftext|>']))
+# bpe_tokenizer = BPETokenizer()
+# v, m = bpe_tokenizer.train('./tests/fixtures/corpus.en', 500, ['<|endoftext|>'])
+# for idx, mv in enumerate(m):
+#     print(idx, mv)
+
+# pc=count_pairs(wc)
+# print("max",  max(pc, key=pc.get))
+# sc=sorted_counts(pc)
+# print(list(sc)[:10])
 # print(bpe_tokenizer.train('./tests/fixtures/test_doc.txt', 260, ['<|endoftext|>']))
