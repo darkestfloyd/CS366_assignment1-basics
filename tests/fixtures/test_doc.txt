@@ -1,4 +1,8 @@
 low low low low low
+<|endofsentence|>
 lower lower widest widest widest
+<|endoftext|>
 newest newest newest newest newest newest
+<|endofsentence|>
 hello! こんにちは!
+<|endoftext|>

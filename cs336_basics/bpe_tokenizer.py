@@ -1,6 +1,7 @@
 import numpy as np
 import regex
 from collections import defaultdict
+from itertools import chain
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
@@ -36,6 +37,9 @@ def get_word_counts(words: iter) -> dict[tuple[bytes], int]:
         word_counts[sub_word] += 1
     return word_counts
         
+def get_words(pattern: str, docs: list[str]):
+    return chain.from_iterable(regex.finditer(pattern, doc) for doc in docs)
+
 sorted_counts = lambda x: sorted(x.items(), key=lambda item: item[1],  reverse=True)
 class BPETokenizer:
     def __init__(self):
@@ -51,15 +55,15 @@ class BPETokenizer:
         with open(input_path, 'r') as file:
             doc = file.read()
 
+        docs = [doc]
         # expand vocab with special tokens
         if len(special_tokens) > 0: 
             for sp in special_tokens:
                 self.vocab[max(self.vocab) + 1] = sp.encode()
-        else:
-            docs = doc
+                docs = list(chain.from_iterable([doc.split(sp) for doc in docs]))
 
         # break str into words
-        words = regex.finditer(self.PAT, doc)
+        words = get_words(self.PAT, docs)
         word_counts = get_word_counts(words)
 
         # print(sorted_counts(word_counts))
@@ -82,10 +86,14 @@ class BPETokenizer:
 
 def main() -> None: 
     import pprint
-    bpe_tokenizer = BPETokenizer()
-    v, m = bpe_tokenizer.train('./tests/fixtures/corpus.en', 500, ['<|endoftext|>'])
-    pprint.pprint((v, m))
-    # print(bpe_tokenizer.train('./tests/fixtures/test_doc.txt', 260, ['<|endoftext|>']))
+    import cProfile
+
+    with cProfile.Profile() as pr:
+        bpe_tokenizer = BPETokenizer()
+        v, m = bpe_tokenizer.train('./tests/fixtures/corpus.en', 500, ['<|endoftext|>'])
+        # print(bpe_tokenizer.train('./tests/fixtures/test_doc.txt', 260, ['<|endoftext|>', '<|endofsentence|>']))
+
+    pr.dump_stats('pstats.prof')
 
 if __name__  == "__main__":
     main()
