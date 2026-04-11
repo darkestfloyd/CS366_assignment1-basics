@@ -3,6 +3,7 @@ import regex
 from collections import defaultdict
 from itertools import chain
 import pickle
+from loguru import logger
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
@@ -100,25 +101,41 @@ class BPETokenizer:
             else:
                 raise ValueError("`file_name` metadata invalid")
 
+    def encode(self) -> None:
+        raise NotImplementedError
+
 
 def main() -> None: 
     import pprint
     import cProfile
 
-    fixture_name = 'test_doc'
-    max_vocab_size = 260
+    path: str = './tests/fixtures'
+    param_path = './tests/fixtures/params'
+    cprofile_path = './tests/fixtures/cprofile_reports'
+
+    fixture_name = 'tinystories_sample_5M.txt'
+    max_vocab_size = 500
 
     with cProfile.Profile() as pr:
         bpe_tokenizer = BPETokenizer()
         # v, m = bpe_tokenizer.train('./tests/fixtures/german.txt', 1000, ['<|endoftext|>'])
-        print(f'./tests/fixtures/{fixture_name}.txt')
-        v, m = bpe_tokenizer.train(f'./tests/fixtures/{fixture_name}.txt', max_vocab_size, ['<|endoftext|>', '<|endofsentense|>'])
+        _train_file: str = f'{path}/{fixture_name}'
+        logger.info(f'Training on file {_train_file} ...')
+        v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentense|>'])
 
-    bpe_tokenizer.save_params(f'./tests/fixtures/params/{fixture_name}_params_{max_vocab_size}.bin')
+    _param_path = f'{param_path}/{fixture_name}_params_{max_vocab_size}.bin'
+    logger.info(f'Save params {_param_path}')
+    bpe_tokenizer.save_params(_param_path)
 
-    pprint.pprint(v)
-    pprint.pprint(m)
-    pr.dump_stats(f'./tests/fixtures/cprofile_reports/{fixture_name}_{max_vocab_size}.perf')
+    logger.info(f"Vocab size: {len(v)}")
+    logger.info(f"Merges size: {len(m)}")
+    # pprint.pprint(v)
+    # pprint.pprint(m)
+
+    _cprofile_path = f'{cprofile_path}/{fixture_name}_{max_vocab_size}.perf'
+    logger.info(f'Saving cprofile stats to {_cprofile_path} ...')
+    pr.dump_stats(_cprofile_path)
 
 if __name__  == "__main__":
     main()
+    logger.info("Goodbye.")
