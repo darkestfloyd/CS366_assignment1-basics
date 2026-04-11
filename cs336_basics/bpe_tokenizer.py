@@ -2,6 +2,7 @@ import numpy as np
 import regex
 from collections import defaultdict
 from itertools import chain
+import pickle
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
@@ -82,18 +83,33 @@ class BPETokenizer:
             word_counts = merge_max(word_counts, max_pair)
             
         return (self.vocab, self.merges)
+    
+    def save_params(self, file_name: str) -> None:
+        with open(file_name, 'wb') as f:
+            meta = "(vocab, merges)"
+            data = (self.vocab, self.merges)
+            payload = (meta, data)
+            pickle.dump(payload, f)
 
 
 def main() -> None: 
     import pprint
     import cProfile
 
+    fixture_name = 'test_doc'
+    max_vocab_size = 260
+
     with cProfile.Profile() as pr:
         bpe_tokenizer = BPETokenizer()
-        v, m = bpe_tokenizer.train('./tests/fixtures/tinystories_sample_5M.txt', 1000, ['<|endoftext|>'])
-        # print(bpe_tokenizer.train('./tests/fixtures/test_doc.txt', 260, ['<|endoftext|>', '<|endofsentence|>']))
+        # v, m = bpe_tokenizer.train('./tests/fixtures/german.txt', 1000, ['<|endoftext|>'])
+        print(f'./tests/fixtures/{fixture_name}.txt')
+        v, m = bpe_tokenizer.train(f'./tests/fixtures/{fixture_name}.txt', max_vocab_size, ['<|endoftext|>', '<|endofsentense|>'])
 
-    pr.dump_stats('tinystories_sample_5M.prof')
+    bpe_tokenizer.save_params(f'./tests/fixtures/{fixture_name}_params_{max_vocab_size}.bin')
+
+    pprint.pprint(v)
+    pprint.pprint(m)
+    # pr.dump_stats('tinystories_sample_5M.prof')
 
 if __name__  == "__main__":
     main()
