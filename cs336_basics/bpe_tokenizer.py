@@ -5,6 +5,7 @@ from itertools import chain
 import pickle
 from loguru import logger
 from pretokenization_example import find_chunk_boundaries
+import multiprocessing
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
@@ -53,8 +54,7 @@ class BPETokenizer:
         self.n_parallel = None
         pass
 
-    def open_file(self, input_path: str, n_chunks:int=4, special_tokens:bytes=b''):
-        chunks = []
+    def get_next_chunk(self, input_path: str, n_chunks:int=4, special_tokens:bytes=b''):
         with open(input_path, "rb") as f:
             boundaries = find_chunk_boundaries(f, desired_num_chunks=4,
                                                     split_special_token=special_tokens)
@@ -62,9 +62,7 @@ class BPETokenizer:
             for start, end in zip(boundaries[:-1], boundaries[1:]):
                 f.seek(start)
                 chunk = f.read(end - start).decode("utf-8", errors="ignore")
-                chunks.append(chunk)
-
-        return chunks
+                yield chunk
 
     def train(self, input_path: str, 
               vocab_size: int, 
@@ -76,15 +74,15 @@ class BPETokenizer:
                 doc = file.read()
             docs = [doc]
         else: 
-            docs = self.open_file(input_path, 
+            docs = self.get_next_chunk(input_path, 
                                   n_chunks=4,
                                   special_tokens=special_tokens[0].encode())
-
+            
         # expand vocab with special tokens
         if len(special_tokens) > 0: 
             for sp in special_tokens:
                 self.vocab[max(self.vocab) + 1] = sp.encode()
-                docs = list(chain.from_iterable([doc.split(sp) for doc in docs]))
+                docs = chain.from_iterable(doc.split(sp) for doc in docs)
 
         # break str into words
         words = get_words(self.PAT, docs)
@@ -135,35 +133,36 @@ def main() -> None:
     param_path = './tests/fixtures/params'
     cprofile_path = './tests/fixtures/cprofile_reports'
 
-    fixture_name = 'test_doc.txt'
-    max_vocab_size = 260
+    fixture_name = 'tinystories_sample_5M.txt'
+    max_vocab_size = 500
 
     _train_file: str = f'{path}/{fixture_name}'
-    bpe_tokenizer = BPETokenizer()
-    bpe_tokenizer.open_parallel = True
-    v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
-    pprint.pprint(v)
-    pprint.pprint(m)
+    # bpe_tokenizer = BPETokenizer()
+    # bpe_tokenizer.open_parallel = True
+    # v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
+    # pprint.pprint(v)
+    # pprint.pprint(m)
 
-    # with cProfile.Profile() as pr:
-    #     bpe_tokenizer = BPETokenizer()
-    #     logger.info(f'Training on file {_train_file} ...')
-    #     v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
+    with cProfile.Profile() as pr:
+        bpe_tokenizer = BPETokenizer()
+        bpe_tokenizer.open_parallel = True
+        logger.info(f'Training on file {_train_file} ...')
+        v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
                             # special_tokens=[b'<|endoftext|>', b'<|endofsentence|>'])
 
-    # _param_path = f'{param_path}/{fixture_name}_params_{max_vocab_size}.bin'
-    # logger.info(f'Save params {_param_path}')
-    # bpe_tokenizer.save_params(_param_path)
+    _param_path = f'{param_path}/{fixture_name}_params_{max_vocab_size}.bin'
+    logger.info(f'Save params {_param_path}')
+    bpe_tokenizer.save_params(_param_path)
 
-    # logger.info(f"Vocab size: {len(v)}")
-    # logger.info(f"Merges size: {len(m)}")
-    # # pprint.pprint(v)
-    # # pprint.pprint(m)
+    logger.info(f"Vocab size: {len(v)}")
+    logger.info(f"Merges size: {len(m)}")
+    # pprint.pprint(v)
+    # pprint.pprint(m)
 
 
-    # _cprofile_path = f'{cprofile_path}/{fixture_name}_{max_vocab_size}.perf'
-    # logger.info(f'Saving cprofile stats to {_cprofile_path} ...')
-    # pr.dump_stats(_cprofile_path)
+    _cprofile_path = f'{cprofile_path}/{fixture_name}_{max_vocab_size}.perf'
+    logger.info(f'Saving cprofile stats to {_cprofile_path} ...')
+    pr.dump_stats(_cprofile_path)
 
 if __name__  == "__main__":
     main()
