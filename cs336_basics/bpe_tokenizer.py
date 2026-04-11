@@ -1,7 +1,7 @@
 import numpy as np
 import regex
 from collections import defaultdict
-from itertools import chain
+from itertools import chain, repeat
 import pickle
 from loguru import logger
 from cs336_basics.pretokenization_example import find_chunk_boundaries
@@ -51,7 +51,7 @@ class BPETokenizer:
         self.vocab = {x: bytes([x]) for x in range(256)}
         self.merges = []
         self.open_parallel = False
-        self.n_parallel = None
+        self.n_parallel = 0
         pass
 
     def get_next_chunk(self, input_path: str, n_chunks:int=4, special_tokens:bytes=b''):
@@ -75,9 +75,14 @@ class BPETokenizer:
             docs = [doc]
         else: 
             docs = self.get_next_chunk(input_path, 
-                                  n_chunks=4,
-                                  special_tokens=special_tokens[0].encode())
-            
+                                n_chunks=4,
+                                special_tokens=special_tokens[0].encode())
+            tasks = zip(repeat(self.PAT), docs)
+            with multiprocessing.Pool(processes=self.n_parallel) as pool:
+                read_and_count = lambda x, y: get_word_counts(get_words(x, y))
+                chunk_word_counts = pool.starmap(read_and_count, tasks)
+                pass
+
         # expand vocab with special tokens
         if len(special_tokens) > 0: 
             for sp in special_tokens:
