@@ -1,6 +1,6 @@
 import os
 from typing import BinaryIO
-
+from loguru import logger
 
 def find_chunk_boundaries(
     file: BinaryIO,
@@ -17,6 +17,8 @@ def find_chunk_boundaries(
     file.seek(0, os.SEEK_END)
     file_size = file.tell()
     file.seek(0)
+
+    logger.info(f'File size: {file_size}')
 
     chunk_size = file_size // desired_num_chunks
 
