@@ -133,36 +133,41 @@ def main() -> None:
     param_path = './tests/fixtures/params'
     cprofile_path = './tests/fixtures/cprofile_reports'
 
-    fixture_name = 'tinystories_sample_5M.txt'
-    max_vocab_size = 500
+    fixture_name = 'test_doc.txt'
+    max_vocab_size = 260
 
     _train_file: str = f'{path}/{fixture_name}'
-    # bpe_tokenizer = BPETokenizer()
-    # bpe_tokenizer.open_parallel = True
-    # v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
-    # pprint.pprint(v)
-    # pprint.pprint(m)
+    _path='dev'
 
-    with cProfile.Profile() as pr:
+    if _path == 'dev':
         bpe_tokenizer = BPETokenizer()
         bpe_tokenizer.open_parallel = True
-        logger.info(f'Training on file {_train_file} ...')
+        bpe_tokenizer.n_parallel=2
         v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
-                            # special_tokens=[b'<|endoftext|>', b'<|endofsentence|>'])
+        pprint.pprint(v)
+        pprint.pprint(m)
 
-    _param_path = f'{param_path}/{fixture_name}_params_{max_vocab_size}.bin'
-    logger.info(f'Save params {_param_path}')
-    bpe_tokenizer.save_params(_param_path)
+    elif _path == "prod": 
+        with cProfile.Profile() as pr:
+            bpe_tokenizer = BPETokenizer()
+            bpe_tokenizer.open_parallel = True
+            logger.info(f'Training on file {_train_file} ...')
+            v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
+                                # special_tokens=[b'<|endoftext|>', b'<|endofsentence|>'])
 
-    logger.info(f"Vocab size: {len(v)}")
-    logger.info(f"Merges size: {len(m)}")
-    # pprint.pprint(v)
-    # pprint.pprint(m)
+        _param_path = f'{param_path}/{fixture_name}_params_{max_vocab_size}.bin'
+        logger.info(f'Save params {_param_path}')
+        bpe_tokenizer.save_params(_param_path)
+
+        logger.info(f"Vocab size: {len(v)}")
+        logger.info(f"Merges size: {len(m)}")
+        # pprint.pprint(v)
+        # pprint.pprint(m)
 
 
-    _cprofile_path = f'{cprofile_path}/{fixture_name}_{max_vocab_size}.perf'
-    logger.info(f'Saving cprofile stats to {_cprofile_path} ...')
-    pr.dump_stats(_cprofile_path)
+        _cprofile_path = f'{cprofile_path}/{fixture_name}_{max_vocab_size}.perf'
+        logger.info(f'Saving cprofile stats to {_cprofile_path} ...')
+        pr.dump_stats(_cprofile_path)
 
 if __name__  == "__main__":
     main()
