@@ -4,7 +4,7 @@ from collections import defaultdict
 from itertools import chain
 import pickle
 from loguru import logger
-from pretokenization_example import find_chunk_boundaries
+from cs336_basics.pretokenization_example import find_chunk_boundaries
 import multiprocessing
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
@@ -133,13 +133,12 @@ def main() -> None:
     param_path = './tests/fixtures/params'
     cprofile_path = './tests/fixtures/cprofile_reports'
 
-    fixture_name = 'test_doc.txt'
-    max_vocab_size = 260
-
-    _train_file: str = f'{path}/{fixture_name}'
-    _path='dev'
+    _path='prod'
 
     if _path == 'dev':
+        fixture_name = 'test_doc.txt'
+        max_vocab_size = 260
+        _train_file: str = f'{path}/{fixture_name}'
         bpe_tokenizer = BPETokenizer()
         bpe_tokenizer.open_parallel = True
         bpe_tokenizer.n_parallel=2
@@ -148,6 +147,11 @@ def main() -> None:
         pprint.pprint(m)
 
     elif _path == "prod": 
+
+        fixture_name = 'tinystories_sample_5M.txt'
+        max_vocab_size = 500
+        _train_file: str = f'{path}/{fixture_name}'
+
         with cProfile.Profile() as pr:
             bpe_tokenizer = BPETokenizer()
             bpe_tokenizer.open_parallel = True
