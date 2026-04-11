@@ -91,6 +91,15 @@ class BPETokenizer:
             payload = (meta, data)
             pickle.dump(payload, f)
 
+    def load_params(self, file_name: str) -> None: 
+        with open(file_name, 'rb') as f:
+            payload = pickle.load(f)
+            meta, data = payload
+            if meta == "(vocab, merges)":
+                return data
+            else:
+                raise ValueError("`file_name` metadata invalid")
+
 
 def main() -> None: 
     import pprint
@@ -105,11 +114,11 @@ def main() -> None:
         print(f'./tests/fixtures/{fixture_name}.txt')
         v, m = bpe_tokenizer.train(f'./tests/fixtures/{fixture_name}.txt', max_vocab_size, ['<|endoftext|>', '<|endofsentense|>'])
 
-    bpe_tokenizer.save_params(f'./tests/fixtures/{fixture_name}_params_{max_vocab_size}.bin')
+    bpe_tokenizer.save_params(f'./tests/fixtures/params/{fixture_name}_params_{max_vocab_size}.bin')
 
     pprint.pprint(v)
     pprint.pprint(m)
-    # pr.dump_stats('tinystories_sample_5M.prof')
+    pr.dump_stats(f'./tests/fixtures/cprofile_reports/{fixture_name}_{max_vocab_size}.perf')
 
 if __name__  == "__main__":
     main()
