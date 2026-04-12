@@ -7,6 +7,7 @@ from loguru import logger
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 import multiprocessing
 import os
+import tqdm
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
@@ -122,18 +123,21 @@ class BPETokenizer:
 
         # print(sorted_counts(word_counts))
         # print("============================")
-        while len(self.vocab) < vocab_size:
-            pair_counts = count_pairs(word_counts)
-            # print(sorted_counts(pair_counts))
-            # print("-----------------")
-            # max_pair = max(pair_counts, key=pair_counts.get)
-            max_value = max(pair_counts.values())
-            max_pair = [k for k, v in pair_counts.items() if v == max_value]
-            max_pair = max(max_pair)
-            # print(max_pair)
-            self.vocab[max(self.vocab) + 1] = b''.join(max_pair)
-            self.merges.append(max_pair)
-            word_counts = merge_max(word_counts, max_pair)
+        total_steps = len(self.vocab) - vocab_size
+        with tqdm.tqdm(total=total_steps) as pbar:
+            while len(self.vocab) < vocab_size:
+                pair_counts = count_pairs(word_counts)
+                # print(sorted_counts(pair_counts))
+                # print("-----------------")
+                # max_pair = max(pair_counts, key=pair_counts.get)
+                max_value = max(pair_counts.values())
+                max_pair = [k for k, v in pair_counts.items() if v == max_value]
+                max_pair = max(max_pair)
+                # print(max_pair)
+                self.vocab[max(self.vocab) + 1] = b''.join(max_pair)
+                self.merges.append(max_pair)
+                word_counts = merge_max(word_counts, max_pair)
+                pbar.update(1)
             
         return (self.vocab, self.merges)
     
@@ -168,27 +172,29 @@ def main() -> None:
     _path='prod'
 
     if _path == 'dev':
-        fixture_name = 'test_doc.txt'
+        fixture_name = 'tinystories/validation.csv'
         max_vocab_size = 260
         _train_file: str = f'{path}/{fixture_name}'
         bpe_tokenizer = BPETokenizer()
         bpe_tokenizer.open_parallel = True
-        bpe_tokenizer.n_parallel=1
-        v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
-        pprint.pprint(v)
-        pprint.pprint(m)
+        bpe_tokenizer.n_parallel=4
+        chunk = bpe_tokenizer.get_next_chunk(_train_file, n_chunks=16, special_tokens=b'\n')
+        print(list(chunk))
+        # v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
+        # pprint.pprint(v)
+        # pprint.pprint(m)
 
     elif _path == "prod": 
 
         fixture_name = 'tinystories_sample_5M.txt'
-        max_vocab_size = 500
+        max_vocab_size = 10000
         _train_file: str = f'{path}/{fixture_name}'
 
         with cProfile.Profile() as pr:
             bpe_tokenizer = BPETokenizer()
             bpe_tokenizer.open_parallel = True
-            bpe_tokenizer.n_parallel=16
-            bpe_tokenizer.n_chunks=16
+            bpe_tokenizer.n_parallel=8
+            bpe_tokenizer.n_chunks=8
             logger.info(f'Training on file {_train_file} ...')
             v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>'])
                                 # special_tokens=[b'<|endoftext|>', b'<|endofsentence|>'])
