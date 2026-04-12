@@ -7,6 +7,7 @@ from loguru import logger
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 import multiprocessing
 import os
+import click
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
@@ -101,7 +102,7 @@ class BPETokenizer:
                     docs = chain.from_iterable(doc.split(sp) for doc in docs)
 
             # break str into words
-            words = get_words(self.PAT, docs)
+            words = get_words(self.PAT, list(docs))
             word_counts = get_word_counts(words)
         else: 
             read_positions = self.get_next_chunk(input_path, 
@@ -152,11 +153,16 @@ class BPETokenizer:
                 return data
             else:
                 raise ValueError("`file_name` metadata invalid")
+            raise NotImplementedError
 
     def encode(self) -> None:
         raise NotImplementedError
 
-
+@click.command()
+@click.option("path")
+@click.option("params_dir")
+@click.option("cprofile_dir")
+@click.option("dev")
 def main() -> None: 
     import pprint
     import cProfile
