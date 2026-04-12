@@ -62,11 +62,12 @@ class BPETokenizer:
         with open(input_path, "rb") as f:
             boundaries = find_chunk_boundaries(f, desired_num_chunks=4,
                                                     split_special_token=special_tokens)
-        
+            logger.info(f'Total chunks: {len(boundaries)}')
+
             for start, end in zip(boundaries[:-1], boundaries[1:]):
                 f.seek(start)
                 chunk = f.read(end - start).decode("utf-8", errors="ignore")
-                yield chunk
+                yield [chunk]
 
     def train(self, input_path: str, 
               vocab_size: int, 
@@ -98,6 +99,7 @@ class BPETokenizer:
             with multiprocessing.Pool(processes=self.n_parallel) as pool:
                 chunk_word_counts = pool.starmap(read_and_count, tasks)
             # merge chunks
+
             word_counts = defaultdict(int)
             for chunk_counts in chunk_word_counts:
                 for k, v in chunk_counts.items():
