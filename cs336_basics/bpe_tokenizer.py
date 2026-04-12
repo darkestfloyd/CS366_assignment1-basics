@@ -6,6 +6,7 @@ import pickle
 from loguru import logger
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 import multiprocessing
+import os
 
 def count_pairs(word_counts: dict[tuple[bytes], int]) -> dict[tuple[bytes, bytes], int]:
     pair_counts: dict[tuple[bytes, bytes], int] = defaultdict(int)
@@ -44,6 +45,9 @@ def get_word_counts(words: iter) -> dict[tuple[bytes], int]:
 def get_words(pattern: str, docs: list[str]):
     return chain.from_iterable(regex.finditer(pattern, doc) for doc in docs)
 
+def read_and_count(pattern, docs):
+    return get_word_counts(get_words(pattern, docs))
+
 sorted_counts = lambda x: sorted(x.items(), key=lambda item: item[1],  reverse=True)
 class BPETokenizer:
     def __init__(self):
@@ -69,29 +73,35 @@ class BPETokenizer:
               special_tokens: list[str],
               **kwargs) -> tuple:
         
+        if not os.path.exists(input_path):
+            raise ValueError("File does not exist")
+        
         if not self.open_parallel: 
             with open(input_path, 'r') as file:
                 doc = file.read()
             docs = [doc]
+
+            # expand vocab with special tokens
+            if len(special_tokens) > 0: 
+                for sp in special_tokens:
+                    self.vocab[max(self.vocab) + 1] = sp.encode()
+                    docs = chain.from_iterable(doc.split(sp) for doc in docs)
+
+            # break str into words
+            words = get_words(self.PAT, docs)
+            word_counts = get_word_counts(words)
         else: 
             docs = self.get_next_chunk(input_path, 
-                                n_chunks=4,
+                                n_chunks=self.n_parallel,
                                 special_tokens=special_tokens[0].encode())
             tasks = zip(repeat(self.PAT), docs)
             with multiprocessing.Pool(processes=self.n_parallel) as pool:
-                read_and_count = lambda x, y: get_word_counts(get_words(x, y))
                 chunk_word_counts = pool.starmap(read_and_count, tasks)
-                pass
-
-        # expand vocab with special tokens
-        if len(special_tokens) > 0: 
-            for sp in special_tokens:
-                self.vocab[max(self.vocab) + 1] = sp.encode()
-                docs = chain.from_iterable(doc.split(sp) for doc in docs)
-
-        # break str into words
-        words = get_words(self.PAT, docs)
-        word_counts = get_word_counts(words)
+            # merge chunks
+            word_counts = defaultdict(int)
+            for chunk_counts in chunk_word_counts:
+                for k, v in chunk_counts.items():
+                    word_counts[k] += v
 
         # print(sorted_counts(word_counts))
         # print("============================")
@@ -160,8 +170,9 @@ def main() -> None:
         with cProfile.Profile() as pr:
             bpe_tokenizer = BPETokenizer()
             bpe_tokenizer.open_parallel = True
+            bpe_tokenizer.n_parallel=4
             logger.info(f'Training on file {_train_file} ...')
-            v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
+            v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>'])
                                 # special_tokens=[b'<|endoftext|>', b'<|endofsentence|>'])
 
         _param_path = f'{param_path}/{fixture_name}_params_{max_vocab_size}.bin'
