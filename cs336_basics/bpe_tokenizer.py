@@ -56,13 +56,14 @@ class BPETokenizer:
         self.merges = []
         self.open_parallel = False
         self.n_parallel = 0
+        self.n_chunks = 4
         pass
 
-    def get_next_chunk(self, input_path: str, n_chunks:int=4, special_tokens:bytes=b''):
+    def get_next_chunk(self, input_path: str, n_chunks:int=4, special_tokens:list[bytes]=None):
         with open(input_path, "rb") as f:
             boundaries = find_chunk_boundaries(f, desired_num_chunks=4,
                                                     split_special_token=special_tokens)
-            logger.info(f'Total chunks: {len(boundaries)}')
+            logger.info(f'Chunk start: {boundaries}')
 
             for start, end in zip(boundaries[:-1], boundaries[1:]):
                 f.seek(start)
@@ -93,8 +94,9 @@ class BPETokenizer:
             word_counts = get_word_counts(words)
         else: 
             docs = self.get_next_chunk(input_path, 
-                                n_chunks=self.n_parallel,
-                                special_tokens=special_tokens[0].encode())
+                                n_chunks=self.n_chunks,
+                                special_tokens=[st.encode() for st in special_tokens])
+            # docs=list(docs)
             tasks = zip(repeat(self.PAT), docs)
             with multiprocessing.Pool(processes=self.n_parallel) as pool:
                 chunk_word_counts = pool.starmap(read_and_count, tasks)
@@ -150,7 +152,7 @@ def main() -> None:
     param_path = './tests/fixtures/params'
     cprofile_path = './tests/fixtures/cprofile_reports'
 
-    _path='prod'
+    _path='dev'
 
     if _path == 'dev':
         fixture_name = 'test_doc.txt'
