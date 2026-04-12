@@ -45,8 +45,18 @@ def get_word_counts(words: iter) -> dict[tuple[bytes], int]:
 def get_words(pattern: str, docs: list[str]):
     return chain.from_iterable(regex.finditer(pattern, doc) for doc in docs)
 
-def read_and_count(pattern, docs):
-    return get_word_counts(get_words(pattern, docs))
+def read_and_count(input_path, positions, pattern, special_tokens):
+    with open(input_path, 'rb') as file:
+        file.seek(positions[0])
+        chunk = file.read(positions[1] - positions[0]).decode(encoding='utf-8', errors='ignore')
+
+    # expand vocab with special tokens
+    chunk = [chunk]
+    if len(special_tokens) > 0: 
+        for sp in special_tokens:
+            chunk = list(chain.from_iterable(doc.split(sp) for doc in chunk))
+    
+    return get_word_counts(get_words(pattern, chunk))
 
 sorted_counts = lambda x: sorted(x.items(), key=lambda item: item[1],  reverse=True)
 class BPETokenizer:
@@ -55,7 +65,7 @@ class BPETokenizer:
         self.vocab = {x: bytes([x]) for x in range(256)}
         self.merges = []
         self.open_parallel = False
-        self.n_parallel = 0
+        self.n_parallel = 1
         self.n_chunks = 4
         pass
 
@@ -65,10 +75,11 @@ class BPETokenizer:
                                                     split_special_token=special_tokens)
             logger.info(f'Chunk start: {boundaries}')
 
-            for start, end in zip(boundaries[:-1], boundaries[1:]):
-                f.seek(start)
-                chunk = f.read(end - start).decode("utf-8", errors="ignore")
-                yield [chunk]
+        for start, end in zip(boundaries[:-1], boundaries[1:]):
+            yield (start, end)
+                # f.seek(start)
+                # chunk = f.read(end - start).decode("utf-8", errors="ignore")
+                # yield [chunk]
 
     def train(self, input_path: str, 
               vocab_size: int, 
@@ -93,11 +104,13 @@ class BPETokenizer:
             words = get_words(self.PAT, docs)
             word_counts = get_word_counts(words)
         else: 
-            docs = self.get_next_chunk(input_path, 
+            read_positions = self.get_next_chunk(input_path, 
                                 n_chunks=self.n_chunks,
                                 special_tokens=[st.encode() for st in special_tokens])
+            for sp in special_tokens:
+                self.vocab[max(self.vocab) + 1] = sp.encode()
             # docs=list(docs)
-            tasks = zip(repeat(self.PAT), docs)
+            tasks = zip(repeat(input_path), read_positions, repeat(self.PAT), repeat(special_tokens))
             with multiprocessing.Pool(processes=self.n_parallel) as pool:
                 chunk_word_counts = pool.starmap(read_and_count, tasks)
             # merge chunks
@@ -160,7 +173,7 @@ def main() -> None:
         _train_file: str = f'{path}/{fixture_name}'
         bpe_tokenizer = BPETokenizer()
         bpe_tokenizer.open_parallel = True
-        bpe_tokenizer.n_parallel=2
+        bpe_tokenizer.n_parallel=1
         v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>', '<|endofsentence|>'])
         pprint.pprint(v)
         pprint.pprint(m)
@@ -174,7 +187,7 @@ def main() -> None:
         with cProfile.Profile() as pr:
             bpe_tokenizer = BPETokenizer()
             bpe_tokenizer.open_parallel = True
-            bpe_tokenizer.n_parallel=4
+            bpe_tokenizer.n_parallel=0
             logger.info(f'Training on file {_train_file} ...')
             v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>'])
                                 # special_tokens=[b'<|endoftext|>', b'<|endofsentence|>'])
