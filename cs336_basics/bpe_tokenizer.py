@@ -64,14 +64,14 @@ class BPETokenizer:
         self.PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         self.vocab = {x: bytes([x]) for x in range(256)}
         self.merges = []
-        self.open_parallel = False
-        self.n_parallel = 1
+        self.open_parallel = True
+        self.n_parallel = 4
         self.n_chunks = 4
         pass
 
     def get_next_chunk(self, input_path: str, n_chunks:int=4, special_tokens:list[bytes]=None):
         with open(input_path, "rb") as f:
-            boundaries = find_chunk_boundaries(f, desired_num_chunks=4,
+            boundaries = find_chunk_boundaries(f, desired_num_chunks=n_chunks,
                                                     split_special_token=special_tokens)
             logger.info(f'Chunk start: {boundaries}')
 
@@ -165,7 +165,7 @@ def main() -> None:
     param_path = './tests/fixtures/params'
     cprofile_path = './tests/fixtures/cprofile_reports'
 
-    _path='dev'
+    _path='prod'
 
     if _path == 'dev':
         fixture_name = 'test_doc.txt'
@@ -187,7 +187,8 @@ def main() -> None:
         with cProfile.Profile() as pr:
             bpe_tokenizer = BPETokenizer()
             bpe_tokenizer.open_parallel = True
-            bpe_tokenizer.n_parallel=0
+            bpe_tokenizer.n_parallel=16
+            bpe_tokenizer.n_chunks=16
             logger.info(f'Training on file {_train_file} ...')
             v, m = bpe_tokenizer.train(_train_file, max_vocab_size, ['<|endoftext|>'])
                                 # special_tokens=[b'<|endoftext|>', b'<|endofsentence|>'])
